@@ -6,6 +6,35 @@
 
 ---
 
+## 🔀 Git Workflow & Contribution Rules (MANDATORY)
+
+> [!WARNING]
+> **DO NOT PUSH DIRECTLY TO `main`!**  
+> All work must be done on a separate feature branch and submitted via a GitHub Pull Request (PR).
+
+1. **Pull Latest `main`:**
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+2. **Create Your Feature Branch:**
+   ```bash
+   git checkout -b feat/hardware-<feature-name>
+   # Example: git checkout -b feat/hardware-sensor-fusion
+   ```
+3. **Commit & Push Your Branch:**
+   ```bash
+   git add .
+   git commit -m "feat(hardware): implement discrete UKF sensor fusion algorithms"
+   git push -u origin feat/hardware-<feature-name>
+   ```
+4. **Open a Pull Request (PR):**
+   * Go to [GitHub Repository](https://github.com/Arkz-Deepak/sih2026-isro-space-tech)
+   * Click **Compare & pull request** targeting `main`.
+   * Assign/Tag Team Leader (**Arkz-Deepak**) for code review and merge.
+
+---
+
 ## 🎯 Primary Responsibilities
 You are responsible for the physical and embedded flight architecture of the 6U CubeSat bus, sensor fusion, and actuator driver logic.
 

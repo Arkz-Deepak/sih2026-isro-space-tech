@@ -132,12 +132,16 @@ sih2026-isro-space-tech/
 
 ## 👥 Team Delegation & Development Roles
 
+> [!IMPORTANT]
+> **Team Contribution Policy:**  
+> **Direct pushes to `main` are strictly prohibited.** All team members must create feature branches (`feat/frontend-...`, `feat/backend-...`, `feat/hardware-...`) and submit Pull Requests (PRs) on GitHub for the Team Leader (**Arkz-Deepak**) to review and merge.
+
 | Team Member | Domain | Assigned Responsibilities | Primary Guide |
 | :--- | :--- | :--- | :--- |
 | **Team Leader** | Systems Engineering & Project Coordination | Overall architecture, SIH presentation pitch, judging rubric alignment, hardware procurement/validation. | [README.md](file:///C:/Projects/sih2026/README.md) |
 | **Developer 1** | Frontend & 3D Visualization | Build the Ground Control Station (GCS) in Next.js + Three.js, live HUD, telemetry dashboards, and 3D digital twin. | [frontend/agent.md](file:///C:/Projects/sih2026/frontend/agent.md) |
 | **Developer 2** | Backend & Orbital Mechanics | Implement FastAPI telemetry bridge, Clohessy-Wiltshire GNC solver, state machine, and WebSocket streaming. | [backend/backend.md](file:///C:/Projects/sih2026/backend/backend.md) |
-| **Developer 3** | Flight Hardware & Embedded GNC | Design 6U CubeSat avionics, Jetson Orin AI pose pipeline, sensor fusion UKF, and cold-gas thruster firing logic. | [hardware_gnc/hardware_specs.md](file:///C:/Projects/sih2026/hardware_gnc/hardware_specs.md) |
+| **Developer 3** | Flight Hardware & Embedded GNC | Design 6U CubeSat avionics, Jetson Orin AI pose pipeline, sensor fusion UKF, and cold-gas thruster firing logic. | [hardware_gnc/tasks.md](file:///C:/Projects/sih2026/hardware_gnc/tasks.md) |
 
 ---
 
