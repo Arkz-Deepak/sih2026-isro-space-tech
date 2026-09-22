@@ -16,6 +16,11 @@ Most student submissions for space technology hackathons propose either theoreti
 1. **Autonomous Rendezvous & Proximity Operations (RPO) / In-Orbit Docking:** Critical for assembling the **Bharatiya Antariksh Station (BAS-01)** (launching 2028) and the **Chandrayaan-4** dual-launch lunar sample return module transfer.
 2. **Active Space Debris Removal (ADR):** Directly operationalizing ISRO's **IS4OM** mandate to neutralize non-cooperative tumbling debris in Low Earth Orbit (LEO) using vision-based pose estimation and bio-inspired compliant capture.
 
+> [!TIP]
+> 📚 **Essential Presentation & Evaluation Documents:**
+> * 📖 **[Deep-Dive System Explanation (`SYSTEM_EXPLANATION.md`)](file:///C:/Projects/sih2026/SYSTEM_EXPLANATION.md):** Complete breakdown of the orbital mechanics, sensor fusion, gecko electro-adhesion, and mission walkthrough.
+> * 📊 **[Official SIH PPT Submission Script (`SIH_PPT_SUBMISSION.md`)](file:///C:/Projects/sih2026/SIH_PPT_SUBMISSION.md):** Exact 8-slide presentation script formatted for AI PPT generators (Gamma, Tome, Canva) and the official SIH PowerPoint template with speaker notes.
+
 ```
                   +-------------------------------------------------------------+
                   |               PROJECT ASTRA-CLEAN ARCHITECTURE              |
