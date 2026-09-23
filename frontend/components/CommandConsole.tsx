@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useTelemetryStore } from "../store/telemetryStore";
-import { AlertOctagon, CheckCircle2, RotateCcw, Play, Zap, Shield, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertOctagon, CheckCircle2, RotateCcw, Play, Zap, Shield, ShieldAlert, Sparkles, Save, Download, Gauge } from "lucide-react";
 
 export default function CommandConsole() {
   const { currentTelemetry } = useTelemetryStore();
@@ -13,6 +13,75 @@ export default function CommandConsole() {
     type: "info",
   });
   const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const [simSpeed, setSimSpeed] = useState(1);
+
+  const handleSimSpeed = async (speed: number) => {
+    setSimSpeed(speed);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/simulation/speed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ speed }),
+      });
+      const data = await res.json();
+      setStatusMessage({ text: data.message || `Simulation dynamic speed set to ${speed}x`, type: "success" });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAutoPilotToggle = async () => {
+    const nextState = !isAutoPilot;
+    setIsAutoPilot(nextState);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/simulation/autopilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: nextState }),
+      });
+      const data = await res.json();
+      setStatusMessage({
+        text: data.message || (nextState ? "Autonomous GNC Auto-Pilot Engaged: Proceeding to docking target" : "Auto-Pilot Disengaged: Operator manual control active"),
+        type: nextState ? "success" : "info",
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveCheckpoint = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/mission/save_checkpoint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMessage({ text: data.message, type: "success" });
+      } else {
+        setStatusMessage({ text: data.detail || "Failed to save state checkpoint", type: "warning" });
+      }
+    } catch (e) {
+      setStatusMessage({ text: "Error connecting to backend checkpoint endpoint", type: "error" });
+    }
+  };
+
+  const handleLoadCheckpoint = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/mission/load_checkpoint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMessage({ text: data.message, type: "success" });
+      } else {
+        setStatusMessage({ text: data.detail || "No saved checkpoint found to restore", type: "warning" });
+      }
+    } catch (e) {
+      setStatusMessage({ text: "Error connecting to backend checkpoint endpoint", type: "error" });
+    }
+  };
 
   const activePhase = currentTelemetry?.phase ?? "STANDBY";
   const gncMode = currentTelemetry?.gnc_mode ?? "AUTONOMOUS";
@@ -151,6 +220,65 @@ export default function CommandConsole() {
           >
             <RotateCcw className="w-3 h-3" />
             <span>RESET SIM</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Dynamic Simulation Controls & Checkpoint Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-space-950/70 border border-space-800 text-xs">
+        {/* Left: Sim Speeds & Auto-Pilot */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Auto-Pilot Toggle */}
+          <button
+            onClick={handleAutoPilotToggle}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded border transition-all text-[11px] font-bold ${
+              isAutoPilot
+                ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)] animate-pulse"
+                : "bg-space-900 border-space-700 text-gray-400 hover:text-white"
+            }`}
+          >
+            <Play className="w-3 h-3" />
+            <span>AUTOPILOT: {isAutoPilot ? "ENGAGED" : "OFF"}</span>
+          </button>
+
+          {/* Dynamic Sim Speed Multipliers */}
+          <div className="flex items-center gap-1 bg-space-900 px-2 py-0.5 rounded border border-space-800 text-[11px]">
+            <Gauge className="w-3 h-3 text-cyan-400 mr-1" />
+            <span className="text-gray-400 text-[10px] mr-1">SIM SPEED:</span>
+            {[1, 2, 5, 10].map((spd) => (
+              <button
+                key={spd}
+                onClick={() => handleSimSpeed(spd)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
+                  simSpeed === spd
+                    ? "bg-cyan-500 text-black shadow-[0_0_8px_rgba(0,240,255,0.4)]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {spd}x
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Save Machine Checkpoint & Restore */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSaveCheckpoint}
+            className="flex items-center gap-1 px-2.5 py-1 bg-space-900 hover:bg-space-800 border border-emerald-600/50 hover:border-emerald-500 text-emerald-300 rounded text-[11px] font-bold transition-all shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+            title="Save spacecraft position, attitude, and propellant state"
+          >
+            <Save className="w-3 h-3 text-emerald-400" />
+            <span>SAVE CHECKPOINT</span>
+          </button>
+
+          <button
+            onClick={handleLoadCheckpoint}
+            className="flex items-center gap-1 px-2.5 py-1 bg-space-900 hover:bg-space-800 border border-cyan-600/50 hover:border-cyan-500 text-cyan-300 rounded text-[11px] font-bold transition-all"
+            title="Restore spacecraft to saved checkpoint"
+          >
+            <Download className="w-3 h-3 text-cyan-400" />
+            <span>RESTORE CHECKPOINT</span>
           </button>
         </div>
       </div>

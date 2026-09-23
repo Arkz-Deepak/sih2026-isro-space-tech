@@ -7,6 +7,8 @@ import asyncio
 import time
 from datetime import datetime
 from typing import Set, Dict, Any
+import numpy as np
+from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -125,6 +127,56 @@ async def reset_simulation():
         active_phase=state_machine.current_phase
     )
 
+class SimSpeedRequest(BaseModel):
+    speed: float
+
+@app.post("/api/v1/simulation/speed", response_model=CommandResponse)
+async def set_sim_speed(req: SimSpeedRequest):
+    hil_sim.set_sim_speed(req.speed)
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"Simulation speed set to {req.speed}x",
+        active_phase=state_machine.current_phase
+    )
+
+class AutoPilotRequest(BaseModel):
+    enabled: bool
+
+@app.post("/api/v1/simulation/autopilot", response_model=CommandResponse)
+async def set_autopilot(req: AutoPilotRequest):
+    hil_sim.set_auto_pilot(req.enabled)
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"Auto-pilot guidance {'ENABLED' if req.enabled else 'DISABLED'}",
+        active_phase=state_machine.current_phase
+    )
+
+@app.post("/api/v1/mission/save_checkpoint", response_model=CommandResponse)
+async def save_mission_checkpoint():
+    cp = hil_sim.save_checkpoint(state_machine.current_phase)
+    rng = float(np.linalg.norm(cp["state"][0:3]))
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"State checkpoint saved: Phase={cp['phase']}, Range={rng:.1f}m, Fuel={cp['fuel_kg']:.2f}kg",
+        active_phase=state_machine.current_phase
+    )
+
+@app.post("/api/v1/mission/load_checkpoint", response_model=CommandResponse)
+async def load_mission_checkpoint():
+    cp = hil_sim.load_checkpoint()
+    if not cp:
+        raise HTTPException(status_code=400, detail="No saved machine checkpoint found. Save state first.")
+    state_machine.current_phase = cp["phase"]
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"State checkpoint restored to {cp['phase']} phase",
+        active_phase=state_machine.current_phase
+    )
+
 @app.get("/api/v1/orbit/predicted_path")
 async def get_predicted_path():
     """
@@ -154,6 +206,10 @@ async def telemetry_broadcast_loop():
         try:
             # Step simulation physics
             sim_data = hil_sim.update(dt, state_machine.current_phase, state_machine.gnc_mode)
+            if hil_sim.auto_pilot and "recommended_phase" in sim_data:
+                if sim_data["recommended_phase"] != state_machine.current_phase:
+                    state_machine.current_phase = sim_data["recommended_phase"]
+
             met = time.time() - mission_start_time
 
             packet = TelemetryPacket(

@@ -3,11 +3,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useTelemetryStore } from "../store/telemetryStore";
-import { Eye, Orbit, Compass, Layers, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Eye, Orbit, Compass, Layers, ShieldCheck, AlertTriangle, Target } from "lucide-react";
 
 export default function Viewport3D() {
   const mountRef = useRef<HTMLDivElement>(null);
   const { currentTelemetry, selectedCameraMode, setCameraMode } = useTelemetryStore();
+
+  const cameraModeRef = useRef(selectedCameraMode);
+  useEffect(() => {
+    cameraModeRef.current = selectedCameraMode;
+  }, [selectedCameraMode]);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -296,20 +301,36 @@ export default function Viewport3D() {
       // Camera Positioning based on Selected Mode
       if (cameraRef.current) {
         const cam = cameraRef.current;
-        if (selectedCameraMode === "ORBIT") {
+        const mode = cameraModeRef.current;
+
+        if (mode === "ORBIT") {
+          if (chaserGroupRef.current) chaserGroupRef.current.visible = true;
           const { radius, theta, phi } = sphericalRef.current;
           cam.position.x = radius * Math.sin(phi) * Math.sin(theta);
           cam.position.y = radius * Math.cos(phi);
           cam.position.z = radius * Math.sin(phi) * Math.cos(theta);
           cam.lookAt(0, 0, 0);
-        } else if (selectedCameraMode === "CHASER" && chaserGroupRef.current) {
+        } else if (mode === "CHASER" && chaserGroupRef.current) {
+          chaserGroupRef.current.visible = true;
           const cp = chaserGroupRef.current.position;
-          cam.position.set(cp.x, cp.y + 6, cp.z + 16);
+          const dist = cp.length();
+          const dirFromTarget = dist > 0.1 ? cp.clone().normalize() : new THREE.Vector3(0, 0, -1);
+          // Position camera behind CubeSat with slight vertical offset
+          const offsetDist = Math.min(18, Math.max(6, dist * 0.2 + 5));
+          cam.position.copy(cp).addScaledVector(dirFromTarget, offsetDist).add(new THREE.Vector3(0, 3.2, 0));
           cam.lookAt(0, 0, 0);
-        } else if (selectedCameraMode === "BORESIGHT" && chaserGroupRef.current) {
+        } else if (mode === "BORESIGHT" && chaserGroupRef.current) {
+          // Boresight is first-person optical camera POV looking forward from CubeSat nose
+          chaserGroupRef.current.visible = false;
           const cp = chaserGroupRef.current.position;
-          cam.position.set(cp.x, cp.y, cp.z);
+          cam.position.copy(cp);
           cam.lookAt(0, 0, 0);
+        } else if (mode === "TARGET_DOCK" && chaserGroupRef.current) {
+          // Target collar POV looking back at incoming ASTRA CubeSat
+          chaserGroupRef.current.visible = true;
+          const cp = chaserGroupRef.current.position;
+          cam.position.set(0, 3.5, 1.2);
+          cam.lookAt(cp.x, cp.y, cp.z);
         }
       }
 
@@ -430,6 +451,18 @@ export default function Viewport3D() {
         >
           <Compass className="w-3.5 h-3.5" />
           <span>AI SENSOR BORESIGHT</span>
+        </button>
+
+        <button
+          onClick={() => setCameraMode("TARGET_DOCK")}
+          className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-all ${
+            selectedCameraMode === "TARGET_DOCK"
+              ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold shadow-[0_0_12px_rgba(0,240,255,0.3)]"
+              : "bg-space-900/80 border-space-700 text-gray-400 hover:text-white"
+          }`}
+        >
+          <Target className="w-3.5 h-3.5" />
+          <span>TARGET DOCK-CAM</span>
         </button>
       </div>
 

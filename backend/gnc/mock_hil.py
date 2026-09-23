@@ -42,11 +42,51 @@ class HILSimulator:
         self.pending_manual_thrust = np.zeros(3)
         self.time_to_go = 300.0 # seconds until nominal docking point
 
+        # Dynamic simulation & Save Machine Checkpoint state
+        self.sim_speed = 1.0 # 1x, 2x, 5x, 10x
+        self.auto_pilot = False
+        self.checkpoint = None
+
+    def save_checkpoint(self, active_phase: str) -> Dict[str, Any]:
+        """Save machine state persistence checkpoint."""
+        self.checkpoint = {
+            "state": self.state.copy(),
+            "quaternion": self.quaternion.copy(),
+            "angular_rate": self.angular_rate.copy(),
+            "fuel_kg": float(self.thrusters.fuel_mass),
+            "battery_pct": float(self.battery_pct),
+            "reaction_wheels_rpm": self.reaction_wheels_rpm.copy(),
+            "gripper_state": self.gripper_state,
+            "phase": active_phase,
+            "timestamp": time.time()
+        }
+        return self.checkpoint
+
+    def load_checkpoint(self) -> Optional[Dict[str, Any]]:
+        """Restore machine state from saved checkpoint."""
+        if not self.checkpoint:
+            return None
+        cp = self.checkpoint
+        self.state = cp["state"].copy()
+        self.quaternion = cp["quaternion"].copy()
+        self.angular_rate = cp["angular_rate"].copy()
+        self.thrusters.fuel_mass = cp["fuel_kg"]
+        self.battery_pct = cp["battery_pct"]
+        self.reaction_wheels_rpm = cp["reaction_wheels_rpm"].copy()
+        self.gripper_state = cp["gripper_state"]
+        return cp
+
+    def set_sim_speed(self, speed: float):
+        self.sim_speed = max(0.5, min(20.0, speed))
+
+    def set_auto_pilot(self, enabled: bool):
+        self.auto_pilot = enabled
+
     def fire_manual_pulse(self, axis: str, duration_sec: float = 0.1):
         """
         Manually trigger thruster pulse along designated body axis.
         """
-        pulse_force = 0.020 # 20 mN pulse
+        pulse_force = 0.040 # 40 mN strong pulse for visible movement
         if axis == "X+": self.pending_manual_thrust[0] += pulse_force
         elif axis == "X-": self.pending_manual_thrust[0] -= pulse_force
         elif axis == "Y+": self.pending_manual_thrust[1] += pulse_force
@@ -81,26 +121,49 @@ class HILSimulator:
         """
         Advance simulation physics, sensor fusion, and actuators by dt seconds.
         """
+        effective_dt = dt * self.sim_speed
+
+        # Auto-pilot progression logic if enabled
+        dist = np.linalg.norm(self.state[0:3])
+        if self.auto_pilot and gnc_mode != "ABORTING":
+            if active_phase == "STANDBY":
+                active_phase = "PHASING"
+            elif active_phase == "PHASING" and dist < 75.0:
+                active_phase = "APPROACH"
+            elif active_phase == "APPROACH" and dist < 16.0:
+                active_phase = "INSPECTION"
+            elif active_phase == "INSPECTION" and dist < 5.0:
+                active_phase = "CAPTURE"
+                self.set_gripper_state("ELECTRO_ADHESION_ACTIVE")
+
         # 1. Compute Guidance Force
         commanded_force = np.zeros(3)
 
         if gnc_mode == "ABORTING":
             # Maximum retro-thrust along -y (retreating along V-bar)
-            commanded_force = np.array([0.0, -0.060, 0.0]) # 60 mN retro
+            commanded_force = np.array([0.0, -0.080, 0.0]) # 80 mN retro
             self.time_to_go = 999.0
 
-        elif active_phase in ["APPROACH", "CAPTURE"]:
-            # ZEM/ZEV feedback guidance towards docking port
-            dist = np.linalg.norm(self.state[0:3])
-            self.time_to_go = max(10.0, dist / max(0.05, abs(self.state[4])))
+        elif active_phase == "PHASING":
+            # Active closing push along V-bar (+y direction)
+            if self.state[4] < 0.25:
+                commanded_force[1] = 0.025 # 25 mN forward push
 
-            a_cmd, zem, zev = self.guidance.compute_acceleration_command(
-                current_state=self.state,
-                target_state=self.target_state,
-                time_to_go=self.time_to_go,
-                max_accel=0.015 # m/s^2
-            )
-            commanded_force = a_cmd * self.thrusters.mass
+        elif active_phase in ["APPROACH", "CAPTURE"]:
+            # Dynamic proportional closing along V-bar towards 0
+            desired_vel = np.clip(abs(self.state[1]) * 0.015, 0.04, 0.5)
+            if self.state[1] < -0.3:
+                # Need forward velocity (+y)
+                vel_error = desired_vel - self.state[4]
+                commanded_force[1] = np.clip(vel_error * 0.4, -0.04, 0.04)
+            elif self.state[1] > 0.3:
+                # Overshot, need backward velocity (-y)
+                vel_error = -desired_vel - self.state[4]
+                commanded_force[1] = np.clip(vel_error * 0.4, -0.04, 0.04)
+
+            # Center alignment on Radial (x) and Cross-Track (z)
+            commanded_force[0] = -self.state[0] * 0.02 - self.state[3] * 0.1
+            commanded_force[2] = -self.state[2] * 0.02 - self.state[5] * 0.1
 
             if active_phase == "CAPTURE" and dist < 0.8:
                 self.gripper_state = "CAPTURED"
@@ -121,16 +184,16 @@ class HILSimulator:
         self.pending_manual_thrust = np.zeros(3) # Reset manual pulse
 
         # 2. Thruster Control Allocation & Fuel Burn
-        nozzles, fuel_burned = self.thrusters.allocate_thrust(commanded_force, dt=dt)
+        nozzles, fuel_burned = self.thrusters.allocate_thrust(commanded_force, dt=effective_dt)
         self.active_nozzles_firing = nozzles
 
         # Resulting applied acceleration
         actual_accel = np.sum([self.thrusters.thrust_directions[i] * nozzles[i] for i in range(8)], axis=0) / self.thrusters.mass
 
         # 3. Propagate Physical Orbit Dynamics via Clohessy-Wiltshire
-        phi = self.cw_solver.state_transition_matrix(dt)
+        phi = self.cw_solver.state_transition_matrix(effective_dt)
         propagated = np.dot(phi, self.state)
-        propagated[3:6] += actual_accel * dt
+        propagated[3:6] += actual_accel * effective_dt
         self.state = propagated
 
         # 4. Synthesize Sensor Measurements with Realistic Space Noise
@@ -206,5 +269,6 @@ class HILSimulator:
                 "koz_status": koz_status,
                 "docking_alignment_error_deg": round(alignment_error, 2),
                 "ai_confidence": round(float(np.clip(99.0 - (alignment_error * 0.5) + np.random.normal(0, 0.2), 85.0, 99.8)), 1)
-            }
+            },
+            "recommended_phase": active_phase
         }
