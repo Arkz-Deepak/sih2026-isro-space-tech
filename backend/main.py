@@ -101,14 +101,14 @@ async def fire_thruster_pulse(cmd: CommandRequest):
 @app.post("/api/v1/commands/gripper", response_model=CommandResponse)
 async def actuate_gripper(cmd: CommandRequest):
     if not cmd.gripper_state:
-        raise HTTPException(status_code=400, detail="gripper_state required")
+        raise HTTPException(status_code=400, detail="gripper_state required (e.g. DEPLOY, STOW, ENGAGE_ELECTRO_ADHESION, RELEASE)")
     success = hil_sim.set_gripper_state(cmd.gripper_state)
     if not success:
         raise HTTPException(status_code=400, detail=f"Invalid gripper state: {cmd.gripper_state}")
     return CommandResponse(
         success=True,
         status_code=200,
-        message=f"Gripper transitioned to {cmd.gripper_state}",
+        message=f"Gripper mechanism transitioned to {hil_sim.gripper_state}",
         active_phase=state_machine.current_phase
     )
 

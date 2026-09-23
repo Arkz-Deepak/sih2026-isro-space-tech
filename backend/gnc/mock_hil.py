@@ -54,10 +54,26 @@ class HILSimulator:
         elif axis == "Z+": self.pending_manual_thrust[2] += pulse_force
         elif axis == "Z-": self.pending_manual_thrust[2] -= pulse_force
 
+    GRIPPER_NORMALIZATION = {
+        # Action verbs -> Canonical state
+        "DEPLOY": "DEPLOYED",
+        "STOW": "STOWED",
+        "ENGAGE_ELECTRO_ADHESION": "ELECTRO_ADHESION_ACTIVE",
+        "RELEASE": "RELEASED",
+        # Direct canonical states
+        "STOWED": "STOWED",
+        "DEPLOYED": "DEPLOYED",
+        "ELECTRO_ADHESION_ACTIVE": "ELECTRO_ADHESION_ACTIVE",
+        "CAPTURED": "CAPTURED",
+        "RELEASED": "RELEASED",
+    }
+
     def set_gripper_state(self, state: str) -> bool:
-        valid_states = ["STOWED", "DEPLOYED", "ELECTRO_ADHESION_ACTIVE", "CAPTURED", "RELEASED"]
-        if state in valid_states:
-            self.gripper_state = state
+        if not state:
+            return False
+        normalized = self.GRIPPER_NORMALIZATION.get(state.strip().upper())
+        if normalized:
+            self.gripper_state = normalized
             return True
         return False
 

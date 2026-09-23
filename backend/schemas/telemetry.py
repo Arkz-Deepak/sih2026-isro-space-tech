@@ -50,12 +50,24 @@ class TelemetryPacket(BaseModel):
         "AUTONOMOUS", description="Flight guidance authority mode"
     )
 
+GripperStateEnum = Literal[
+    "STOWED",
+    "DEPLOYED",
+    "ELECTRO_ADHESION_ACTIVE",
+    "CAPTURED",
+    "RELEASED",
+    "DEPLOY",
+    "STOW",
+    "ENGAGE_ELECTRO_ADHESION",
+    "RELEASE"
+]
+
 class CommandRequest(BaseModel):
-    command_type: Literal["PHASE_TRANSITION", "EMERGENCY_ABORT", "THRUSTER_PULSE", "GRIPPER_ACTUATE"]
+    command_type: Optional[Literal["PHASE_TRANSITION", "EMERGENCY_ABORT", "THRUSTER_PULSE", "GRIPPER_ACTUATE"]] = "PHASE_TRANSITION"
     target_phase: Optional[str] = None
     thruster_axis: Optional[Literal["X+", "X-", "Y+", "Y-", "Z+", "Z-"]] = None
     pulse_duration_ms: Optional[int] = 50
-    gripper_state: Optional[Literal["DEPLOY", "STOW", "ENGAGE_ELECTRO_ADHESION", "RELEASE"]] = None
+    gripper_state: Optional[GripperStateEnum] = None
     reason: Optional[str] = "Operator commanded via GCS"
     force: Optional[bool] = False
 
