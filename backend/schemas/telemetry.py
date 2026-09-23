@@ -18,6 +18,8 @@ class ChaserTelemetry(BaseModel):
     bus_voltage_v: float = Field(28.0, description="Main avionics bus voltage in Volts")
     reaction_wheels_rpm: List[float] = Field(..., description="[Rx, Ry, Rz] Reaction wheel RPM")
     npu_temp_c: float = Field(..., description="Jetson Orin NPU temperature in Celsius")
+    gripper_state: Optional[str] = Field("STOWED", description="Gecko-adhesive gripper mechanism state")
+    active_thrusters: Optional[List[float]] = Field(None, description="Active 8-nozzle thrust values in Newtons")
 
 class TargetTelemetry(BaseModel):
     distance_meters: float = Field(..., description="Relative distance to target center of mass")

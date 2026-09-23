@@ -86,6 +86,45 @@ async def emergency_abort(cmd: CommandRequest):
         active_phase=state_machine.current_phase
     )
 
+@app.post("/api/v1/commands/thruster_pulse", response_model=CommandResponse)
+async def fire_thruster_pulse(cmd: CommandRequest):
+    if not cmd.thruster_axis:
+        raise HTTPException(status_code=400, detail="thruster_axis required (e.g. X+, X-, Y+, Y-, Z+, Z-)")
+    hil_sim.fire_manual_pulse(cmd.thruster_axis, duration_sec=(cmd.pulse_duration_ms or 50)/1000.0)
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"Fired {cmd.pulse_duration_ms or 50}ms pulse on {cmd.thruster_axis}",
+        active_phase=state_machine.current_phase
+    )
+
+@app.post("/api/v1/commands/gripper", response_model=CommandResponse)
+async def actuate_gripper(cmd: CommandRequest):
+    if not cmd.gripper_state:
+        raise HTTPException(status_code=400, detail="gripper_state required")
+    success = hil_sim.set_gripper_state(cmd.gripper_state)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Invalid gripper state: {cmd.gripper_state}")
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message=f"Gripper transitioned to {cmd.gripper_state}",
+        active_phase=state_machine.current_phase
+    )
+
+@app.post("/api/v1/simulation/reset", response_model=CommandResponse)
+async def reset_simulation():
+    global hil_sim, state_machine, mission_start_time
+    state_machine = MissionStateMachine()
+    hil_sim = HILSimulator()
+    mission_start_time = time.time()
+    return CommandResponse(
+        success=True,
+        status_code=200,
+        message="Simulation reset to initial orbit phasing standoff position",
+        active_phase=state_machine.current_phase
+    )
+
 @app.get("/api/v1/orbit/predicted_path")
 async def get_predicted_path():
     """
