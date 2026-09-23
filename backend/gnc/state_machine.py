@@ -13,12 +13,13 @@ class MissionStateMachine:
         self.gnc_mode = "AUTONOMOUS"
         self.abort_reason = None
 
-    def request_transition(self, target_phase: str, telemetry: Dict[str, Any]) -> Tuple[bool, str]:
+    def request_transition(self, target_phase: str, telemetry: Dict[str, Any], force: bool = False) -> Tuple[bool, str]:
         """
         Evaluate safety guards before transitioning to target phase.
+        If force=True, bypasses strict range guards for operator/demo override.
         """
-        if self.current_phase == "ABORT":
-            return False, "Vehicle is in ABORT state. Manual reset and ground override required."
+        if self.current_phase == "ABORT" and target_phase != "STANDBY":
+            return False, "Vehicle is in ABORT state. Transition to STANDBY required to reset flight computer."
 
         if target_phase == "ABORT":
             self.trigger_emergency_abort("Operator or safety commanded abort")
@@ -26,6 +27,11 @@ class MissionStateMachine:
 
         if target_phase not in self.PHASES:
             return False, f"Unknown phase: {target_phase}"
+
+        if force:
+            self.current_phase = target_phase
+            self.gnc_mode = "AUTONOMOUS"
+            return True, f"[OVERRIDE ACTIVE] Forced transition to {target_phase}"
 
         chaser = telemetry.get("chaser", {})
         target = telemetry.get("target", {})

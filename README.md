@@ -152,20 +152,27 @@ sih2026-isro-space-tech/
 
 ## ⚡ Quick Start Guide
 
-### Prerequisites
-* **Node.js**: v18.0+ or v20.0+
-* **Python**: 3.10+
-* **Git**
+### 🚀 One-Click Launch (Windows)
+Double-click `start_mission.bat` at the root of the repository. It automatically boots the Python backend, launches the Next.js frontend, and opens the Mission Control Dashboard in your browser!
 
-### 1. Launch the Astrodynamics & Telemetry Backend
+```bash
+# Or run from command prompt:
+start_mission.bat
+```
+
+### 🔬 Automated Terminal Simulation & Verification
+```bash
+# Run 120-second automated rendezvous & capture simulation:
+python simulation/run_simulation.py
+
+# Run the 6 GNC mathematical unit & integration tests:
+python -m unittest simulation/test_gnc.py
+```
+
+### Manual Component Launch
+#### 1. Launch the Astrodynamics & Telemetry Backend
 ```bash
 cd backend
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
 pip install -r requirements.txt
 python main.py
 ```

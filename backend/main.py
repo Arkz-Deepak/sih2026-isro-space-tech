@@ -64,7 +64,7 @@ async def transition_phase(cmd: CommandRequest):
 
     # Fetch latest telemetry snapshot for guard evaluation
     current_data = hil_sim.update(0.0, state_machine.current_phase, state_machine.gnc_mode)
-    success, msg = state_machine.request_transition(cmd.target_phase, current_data)
+    success, msg = state_machine.request_transition(cmd.target_phase, current_data, force=bool(cmd.force))
 
     if not success:
         raise HTTPException(status_code=400, detail=msg)

@@ -9,6 +9,8 @@ export interface ChaserTelemetry {
   bus_voltage_v: number;
   reaction_wheels_rpm: [number, number, number];
   npu_temp_c: number;
+  gripper_state?: string;
+  active_thrusters?: number[];
 }
 
 export interface TargetTelemetry {

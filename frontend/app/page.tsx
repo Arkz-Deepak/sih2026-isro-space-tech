@@ -1,15 +1,27 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Viewport3D from "../components/Viewport3D";
 import HUDOverlay from "../components/HUDOverlay";
 import TelemetryGrid from "../components/TelemetryGrid";
 import CommandConsole from "../components/CommandConsole";
+import MissionEventLog from "../components/MissionEventLog";
 import { useTelemetryStore } from "../store/telemetryStore";
-import { Radio, Satellite, Activity, Wifi, ShieldCheck } from "lucide-react";
+import { Satellite, Activity, Wifi, ShieldCheck, Clock, Radio } from "lucide-react";
 
 export default function MissionControlDashboard() {
   const { setTelemetry, setConnected, isConnected, currentTelemetry } = useTelemetryStore();
+  const [utcTime, setUtcTime] = useState("");
+
+  // Clock Update
+  useEffect(() => {
+    const updateUtc = () => {
+      setUtcTime(new Date().toUTCString().slice(17, 25) + " UTC");
+    };
+    updateUtc();
+    const interval = setInterval(updateUtc, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // WebSocket Connection Lifecycle
   useEffect(() => {
@@ -34,13 +46,11 @@ export default function MissionControlDashboard() {
       };
 
       ws.onclose = () => {
-        console.warn("WebSocket closed. Attempting reconnect in 2s...");
         setConnected(false);
         reconnectTimeout = setTimeout(connect, 2000);
       };
 
       ws.onerror = (err) => {
-        console.error("WebSocket error:", err);
         ws?.close();
       };
     };
@@ -57,66 +67,89 @@ export default function MissionControlDashboard() {
   const phase = currentTelemetry?.phase ?? "STANDBY";
 
   return (
-    <main className="flex-1 flex flex-col p-3 md:p-5 max-w-[1700px] w-full mx-auto gap-3">
-      {/* Top Mission Status Bar */}
-      <header className="flex flex-wrap items-center justify-between bg-space-900 border border-space-700 p-3 rounded-xl font-mono text-xs">
+    <main className="flex-1 flex flex-col p-3 md:p-5 max-w-[1780px] w-full mx-auto gap-3.5 select-none">
+      {/* Top Aerospace Operations Header */}
+      <header className="aerospace-panel flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-space-700/80 font-tactical">
+        {/* Left: Project Branding */}
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-neon/10 border border-cyan-neon/30 rounded-lg">
-            <Satellite className="w-5 h-5 text-cyan-neon" />
+          <div className="p-2.5 bg-cyan-500/10 border border-cyan-400/40 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+            <Satellite className="w-5 h-5 text-cyan-300 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-wider text-white">PROJECT ASTRA-CLEAN</h1>
-            <span className="text-[10px] text-gray-400">ISRO SPADEX & BAS-01 COMPLIANT GCS</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-bold tracking-wider text-white">PROJECT ASTRA-CLEAN</h1>
+              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded font-bold">
+                SIH26226
+              </span>
+            </div>
+            <span className="text-[11px] text-gray-400">ISRO SPADEX &amp; BAS-01 IN-ORBIT SERVICING &amp; DEBRIS MITIGATION GCS</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-neon" />
-            <span className="text-gray-400">MET:</span>
-            <span className="text-white font-bold text-sm">
+        {/* Right: Operational Telemetry Badges */}
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          {/* Mission Elapsed Time */}
+          <div className="flex items-center gap-2 bg-space-900 border border-space-700 px-3 py-1.5 rounded-lg">
+            <Activity className="w-4 h-4 text-cyan-400" />
+            <span className="text-gray-400 text-[11px]">MET:</span>
+            <span className="text-white font-bold text-sm tracking-wide">
               T+{Math.floor(met / 3600).toString().padStart(2, "0")}:
               {Math.floor((met % 3600) / 60).toString().padStart(2, "0")}:
               {Math.floor(met % 60).toString().padStart(2, "0")}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-laser-green" />
-            <span className="text-gray-400">PHASE:</span>
-            <span className="text-cyan-neon font-bold">{phase}</span>
+          {/* Active Flight Phase */}
+          <div className="flex items-center gap-2 bg-space-900 border border-space-700 px-3 py-1.5 rounded-lg">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span className="text-gray-400 text-[11px]">PHASE:</span>
+            <span className="text-cyan-300 font-bold">{phase}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Wifi className={`w-4 h-4 ${isConnected ? "text-laser-green animate-pulse" : "text-red-500"}`} />
-            <span className={isConnected ? "text-laser-green font-bold" : "text-red-400 font-bold"}>
-              {isConnected ? "TELEMETRY 20Hz" : "OFFLINE"}
-            </span>
+          {/* UTC Clock */}
+          <div className="hidden sm:flex items-center gap-2 bg-space-900 border border-space-700 px-3 py-1.5 rounded-lg text-gray-300">
+            <Clock className="w-3.5 h-3.5 text-gray-400" />
+            <span>{utcTime}</span>
+          </div>
+
+          {/* 20 Hz WebSocket Link Status */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-bold ${
+            isConnected
+              ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              : "bg-red-950/60 border-red-500/40 text-red-400 animate-pulse"
+          }`}>
+            <Wifi className={`w-4 h-4 ${isConnected ? "animate-pulse" : ""}`} />
+            <span>{isConnected ? "TELEMETRY 20 Hz" : "OFFLINE"}</span>
           </div>
         </div>
       </header>
 
-      {/* Main Viewport & HUD Section */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-[420px]">
-        {/* Left 2 Cols: 3D Digital Twin Viewport */}
-        <div className="lg:col-span-2 h-full min-h-[420px]">
+      {/* Main 3D Digital Twin & Optical HUD Section */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 flex-1 min-h-[460px]">
+        {/* Left 2 Cols: Three.js 3D Orbital Canvas */}
+        <div className="lg:col-span-2 h-full min-h-[460px]">
           <Viewport3D />
         </div>
 
-        {/* Right 1 Col: Optical Camera HUD */}
-        <div className="h-full min-h-[300px]">
+        {/* Right 1 Col: Optical Camera Docking HUD */}
+        <div className="h-full min-h-[380px]">
           <HUDOverlay />
         </div>
       </section>
 
-      {/* Real-Time Telemetry Grid */}
+      {/* Real-Time Aerospace Subsystem Gauges */}
       <section>
         <TelemetryGrid />
       </section>
 
-      {/* Telecommand & GNC Control Console */}
-      <section>
-        <CommandConsole />
+      {/* Telecommand Console & Mission Event Audit Log */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        <div className="lg:col-span-2">
+          <CommandConsole />
+        </div>
+        <div className="h-full">
+          <MissionEventLog />
+        </div>
       </section>
     </main>
   );

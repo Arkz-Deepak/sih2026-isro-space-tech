@@ -57,6 +57,7 @@ class CommandRequest(BaseModel):
     pulse_duration_ms: Optional[int] = 50
     gripper_state: Optional[Literal["DEPLOY", "STOW", "ENGAGE_ELECTRO_ADHESION", "RELEASE"]] = None
     reason: Optional[str] = "Operator commanded via GCS"
+    force: Optional[bool] = False
 
 class CommandResponse(BaseModel):
     success: bool
