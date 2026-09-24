@@ -1,0 +1,31 @@
+{
+  "name": "astra-clean-space-tech",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend && node -e \"const fs = require('fs'); fs.cpSync('frontend/.next', '.next', {recursive: true}); fs.cpSync('frontend/public', 'public', {recursive: true});\"",
+    "start": "npm run start --prefix frontend",
+    "type-check": "npm run type-check --prefix frontend"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.170.0",
+    "lucide-react": "^0.460.0",
+    "zustand": "^5.0.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.0",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.49",
+    "autoprefixer": "^10.4.20"
+  }
+}
