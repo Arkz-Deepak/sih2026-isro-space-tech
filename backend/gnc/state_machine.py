@@ -66,6 +66,10 @@ class MissionStateMachine:
             if closing_speed > 0.15:
                 return False, f"Guard violation: Contact closing speed ({closing_speed:.2f} m/s) must be <= 0.15 m/s"
 
+        elif target_phase == "DEORBIT":
+            if self.current_phase != "CAPTURE":
+                return False, "Guard violation: Vehicle must be docked in CAPTURE phase before initiating deorbit burn"
+
         self.current_phase = target_phase
         return True, f"Successfully transitioned to {target_phase}"
 

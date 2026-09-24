@@ -5,7 +5,7 @@ Defines Pydantic models for real-time WebSocket telemetry and REST command valid
 
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 class ChaserTelemetry(BaseModel):
     position: List[float] = Field(..., description="[x, y, z] in LVLH meters (Radial, In-Track, Cross-Track)")
@@ -33,7 +33,7 @@ class TargetTelemetry(BaseModel):
     ai_confidence: float = Field(..., description="TensorRT optical keypoint pose estimation confidence (0-100%)")
 
 class TelemetryPacket(BaseModel):
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     met_seconds: float = Field(..., description="Mission Elapsed Time in seconds")
     phase: Literal[
         "STANDBY",

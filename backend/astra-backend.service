@@ -1,0 +1,31 @@
+[Unit]
+Description=Project ASTRA-CLEAN Astrodynamics & Telemetry Bridge (FastAPI GNC Engine)
+Documentation=https://github.com/Arkz-Deepak/sih2026-isro-space-tech
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/astra-clean/backend
+ExecStart=/opt/astra-clean/backend/venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2 --ws websockets
+Restart=always
+RestartSec=5s
+Environment=PYTHONUNBUFFERED=1
+Environment=PORT=8000
+
+# Security Sandbox Configuration
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+
+# Resource Limits
+LimitNOFILE=65536
+
+# Standard Output & Journal Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=astra-backend
+
+[Install]
+WantedBy=multi-user.target

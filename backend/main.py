@@ -5,7 +5,7 @@ Streams high-frequency telemetry at 20 Hz via WebSockets and exposes REST teleco
 
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Set, Dict, Any
 import numpy as np
 from pydantic import BaseModel
@@ -47,7 +47,7 @@ async def root():
         "project": "ASTRA-CLEAN",
         "system": "Astrodynamics & Telemetry Bridge",
         "status": "ONLINE",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @app.get("/api/v1/mission/status")
@@ -213,7 +213,7 @@ async def telemetry_broadcast_loop():
             met = time.time() - mission_start_time
 
             packet = TelemetryPacket(
-                timestamp=datetime.utcnow().isoformat() + "Z",
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 met_seconds=round(met, 2),
                 phase=state_machine.current_phase,
                 chaser=sim_data["chaser"],

@@ -7,6 +7,7 @@ import TelemetryGrid from "../components/TelemetryGrid";
 import CommandConsole from "../components/CommandConsole";
 import MissionEventLog from "../components/MissionEventLog";
 import { useTelemetryStore } from "../store/telemetryStore";
+import { TelemetryPacket } from "../types/telemetry";
 import { Satellite, Activity, Wifi, ShieldCheck, Clock, Radio } from "lucide-react";
 
 export default function MissionControlDashboard() {
@@ -23,42 +24,114 @@ export default function MissionControlDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // WebSocket Connection Lifecycle
+  // WebSocket Connection Lifecycle & Autonomous Cloud Staging Fallback
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;
+    let mockInterval: NodeJS.Timeout | null = null;
+    const fallbackStartTime = Date.now();
+    let simDist = 78.4;
+    const simVel = 0.12;
+
+    const startClientFallback = () => {
+      if (mockInterval) return;
+      mockInterval = setInterval(() => {
+        const elapsed = (Date.now() - fallbackStartTime) / 1000.0;
+        simDist = Math.max(0.4, simDist - (simVel * 0.05));
+        const packet: TelemetryPacket = {
+          timestamp: new Date().toISOString(),
+          met_seconds: parseFloat(elapsed.toFixed(1)),
+          phase: simDist < 1.2 ? "CAPTURE" : simDist < 16.0 ? "INSPECTION" : simDist < 75.0 ? "APPROACH" : "PHASING",
+          gnc_mode: "AUTONOMOUS",
+          chaser: {
+            position: [0.12, -simDist, 0.06],
+            velocity: [0.001, simVel, -0.001],
+            quaternion: [1.0, 0.0, 0.0, 0.0],
+            angular_rate: [0.02, -0.01, 0.01],
+            fuel_remaining_kg: Math.max(0.5, parseFloat((2.0 - elapsed * 0.0004).toFixed(3))),
+            delta_v_remaining_ms: 45.2,
+            battery_pct: Math.max(80.0, parseFloat((95.4 - elapsed * 0.002).toFixed(1))),
+            bus_voltage_v: 28.1,
+            reaction_wheels_rpm: [1240, -850, 420],
+            npu_temp_c: 43.2,
+            gripper_state: simDist < 1.2 ? "CAPTURED" : "DEPLOYED",
+            active_thrusters: [0.02, 0.0, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0],
+          },
+          target: {
+            distance_meters: parseFloat(simDist.toFixed(2)),
+            relative_velocity_ms: parseFloat(simVel.toFixed(3)),
+            koz_status: simDist < 5.0 ? "APPROACH_CORRIDOR" : "NOMINAL",
+            docking_alignment_error_deg: 0.65,
+            ai_confidence: 98.8,
+          },
+        };
+        setTelemetry(packet);
+      }, 50); // 20 Hz
+    };
+
+    const stopClientFallback = () => {
+      if (mockInterval) {
+        clearInterval(mockInterval);
+        mockInterval = null;
+      }
+    };
+
+    const getWsUrl = () => {
+      if (process.env.NEXT_PUBLIC_WS_URL) {
+        return process.env.NEXT_PUBLIC_WS_URL;
+      }
+      if (typeof window !== "undefined") {
+        const isHttps = window.location.protocol === "https:";
+        const proto = isHttps ? "wss://" : "ws://";
+        if (window.location.hostname === "localhost") {
+          return "ws://localhost:8000/ws/telemetry";
+        }
+        return `${proto}${window.location.hostname}:8000/ws/telemetry`;
+      }
+      return "ws://localhost:8000/ws/telemetry";
+    };
 
     const connect = () => {
-      ws = new WebSocket("ws://localhost:8000/ws/telemetry");
+      const wsUrl = getWsUrl();
+      try {
+        ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
-        console.log("Connected to ASTRA-CLEAN Telemetry Bridge");
-        setConnected(true);
-      };
+        ws.onopen = () => {
+          console.log("Connected to ASTRA-CLEAN Telemetry Bridge at", wsUrl);
+          stopClientFallback();
+          setConnected(true);
+        };
 
-      ws.onmessage = (event) => {
-        try {
-          const packet = JSON.parse(event.data);
-          setTelemetry(packet);
-        } catch (e) {
-          console.error("Failed to parse telemetry:", e);
-        }
-      };
+        ws.onmessage = (event) => {
+          try {
+            const packet = JSON.parse(event.data);
+            setTelemetry(packet);
+          } catch (e) {
+            console.error("Failed to parse telemetry:", e);
+          }
+        };
 
-      ws.onclose = () => {
+        ws.onclose = () => {
+          setConnected(false);
+          startClientFallback();
+          reconnectTimeout = setTimeout(connect, 3000);
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch (err) {
         setConnected(false);
-        reconnectTimeout = setTimeout(connect, 2000);
-      };
-
-      ws.onerror = (err) => {
-        ws?.close();
-      };
+        startClientFallback();
+        reconnectTimeout = setTimeout(connect, 3000);
+      }
     };
 
     connect();
 
     return () => {
       clearTimeout(reconnectTimeout);
+      stopClientFallback();
       ws?.close();
     };
   }, [setTelemetry, setConnected]);
